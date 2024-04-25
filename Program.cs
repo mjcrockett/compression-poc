@@ -25,30 +25,28 @@ if (cOrD == "c")
 
     byte[] compressedData = helper.Compress(dataToCompress);
     string compressedEncoded = System.Convert.ToBase64String(compressedData); //Save to DB
-    var memoryWithCompressedData = GC.GetTotalMemory(false) / 1024;
-    var memorySizeCompressedData = memoryWithCompressedData - memoryWithUncompressedData;
+    var memorySizeCompressedData = helper.GetMemorySizeOfBase64String(compressedEncoded);
 
     Console.WriteLine("-------------------------------------------------------------");
     Console.WriteLine(compressedEncoded);
     Console.WriteLine("-------------------------------------------------------------");
     Console.WriteLine("Length of compressed string: " + compressedEncoded.Length);
-    Console.WriteLine($"Size in memory of compressed string: {memorySizeCompressedData}KB");
+    Console.WriteLine($"Size in memory of compressed string: {memorySizeCompressedData}");
     Console.WriteLine("Length of uncompressed string: " + uncompressedString.Length);
     Console.WriteLine($"Size in memory of uncompressed string: {memorySizeUncompressedData}KB");
 }
 else if (cOrD == "d")
 {
+    var compressedEncoded = helper.GetCompressedBase64String(); //Pull from DB
+    var memorySizeCompressedData = helper.GetMemorySizeOfBase64String(compressedEncoded);
+
     var memoryBaseline = GC.GetTotalMemory(false) / 1024;
 
-    var compressedString = helper.GetCompressedString(); //Pull from DB
-    var memoryWithCompressedData = GC.GetTotalMemory(false) / 1024;
-    var memorySizeCompressedData = memoryWithCompressedData - memoryBaseline;
-
-    byte[] compressedDataDecoded = System.Convert.FromBase64String(compressedString);
+    byte[] compressedDataDecoded = System.Convert.FromBase64String(compressedEncoded);
     byte[] decompressedData = helper.Decompress(compressedDataDecoded);
     string deCompressedString = Encoding.UTF8.GetString(decompressedData);
     var memoryWithDecompressedData = GC.GetTotalMemory(false) / 1024;
-    var memorySizeDecompressedData = memoryWithDecompressedData - memoryWithCompressedData;
+    var memorySizeDecompressedData = memoryWithDecompressedData - memoryBaseline;
 
     var niceJsonString = helper.FormatJson(deCompressedString);
 
@@ -57,17 +55,19 @@ else if (cOrD == "d")
     Console.WriteLine("-------------------------------------------------------------");
     Console.WriteLine("Length of decompressed string: " + deCompressedString.Length);
     Console.WriteLine($"Size in memory of decompressed string: {memorySizeDecompressedData}KB");
-    Console.WriteLine("Length of compressed string: " + compressedString.Length);
-    Console.WriteLine($"Size in memory of compressed string: {memorySizeCompressedData}KB");
+    Console.WriteLine("Length of compressed string: " + compressedEncoded.Length);
+    Console.WriteLine($"Size in memory of compressed string: {memorySizeCompressedData}");
 }
 
 Console.ReadLine();
 
 public class Helper
 {
+    private const int bitsPerBase64Char = 6;
+    private const int numOfBitsInAByte = 8;
     public Helper() { }
 
-    public string GetCompressedString()
+    public string GetCompressedBase64String()
     {
         var str = File.ReadAllText("compressed.txt");
         return str;
@@ -111,6 +111,17 @@ public class Helper
     {
         dynamic parsedJson = JsonConvert.DeserializeObject(json);
         return JsonConvert.SerializeObject(parsedJson, Newtonsoft.Json.Formatting.Indented);
+    }
+
+    public string GetMemorySizeOfBase64String(string b64)
+    {
+        if (b64.Length % 4 != 0)
+        {
+            throw new Exception("Not a valid base 64 string");
+        }
+        int bits = b64.Length * bitsPerBase64Char;
+        int bytes = bits / numOfBitsInAByte;
+        return bytes.ToString() + "Bytes";
     }
 }
 
